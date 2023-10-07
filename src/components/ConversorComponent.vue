@@ -47,11 +47,11 @@
             <div v-if="savedData.length > 0" class="estilo-datos">
                 <div class="card" v-for="item in reversedSavedData" :key="item._id">
                     <div class="card-body">
-                        <h5 class="card-title">{{ item.message }}</h5>
+                        <h5 class="card-title">Fecha: {{ item.message }}</h5>
                         <p class="card-text">Hora: {{ item.currentTime }}</p>
                         <p class="card-text">Valor UF: ${{ item.ufValor ? item.ufValor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : 'N/A' }}</p>
-                        <p class="card-text">Cantidad de UF: {{ item.amount ? item.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : 'N/A' }}</p>
-                        <p class="card-text">{{item.amount}}{{ item.additionalMessage }}</p>
+                        <p class="card-text">UF's a convertir: {{ item.amount ? item.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : 'N/A' }}</p>
+                        <p class="card-text">Conversión: ${{ item.additionalMessage }} CLP.</p>
                         <button @click="deleteData(item._id)" class="btn btn-danger ml-auto">Eliminar</button>
                     </div>
                 </div>
@@ -64,7 +64,7 @@
 
 <script>
 import axios from 'axios';
-import * as XLSX from 'xlsx';
+import { write, utils as xlsxUtils } from 'xlsx';
 
 export default {
     data() {
@@ -116,8 +116,8 @@ export default {
                 this.error = null;
                 this.ufQuantity = this.amount;
                 this.ufValor = this.ufValue.valor;
-                const message = `Fecha: ${formattedDate}`;
-                const additionalMessage = `UF en CLP: $${this.convertedAmount}`;
+                const message = formattedDate;
+                const additionalMessage = this.convertedAmount;
                 await this.addDataToDatabase(message, additionalMessage, this.ufQuantity, this.ufValor, this.currentTime);
                 await this.getSavedData();
             } catch (error) {
@@ -128,26 +128,25 @@ export default {
         exportToExcel() {
         const data = [
         // Data for Excel, e.g., savedData
-        // Modify this data according to your requirements
-        ['Fecha', 'Hora', 'Valor UF', 'Cantidad de UF', 'Conversion UF a CLP'],
-        ...this.savedData.map(item => [
-            item.message,
-            item.currentTime,
-            item.ufValor ? `$${item.ufValor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : 'N/A',
-            item.amount ? item.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : 'N/A',
-            item.additionalMessage
-        ])
-        ];
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Historial_consultas');
-        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(dataBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'historial_consultas.xlsx';
-        a.click();
+                // Modify this data according to your requirements
+                ['Fecha', 'Hora', 'Valor UF', 'Cantidad de UF', 'Conversión UF a CLP'],
+                ...this.savedData.map(item => [
+                    item.message,
+                    item.currentTime,
+                    item.ufValor ? `$${item.ufValor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : 'N/A',
+                    item.amount ? item.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : 'N/A',
+                    item.additionalMessage
+                ])
+            ];
+            const ws = xlsxUtils.aoa_to_sheet(data);
+            const wb = { Sheets: { 'Historial_consultas': ws }, SheetNames: ['Historial_consultas'] };
+            const excelBuffer = write(wb, { bookType: 'xlsx', type: 'array' });
+            const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'historial_consultas.xlsx';
+            a.click();
         },
         async addDataToDatabase(message, additionalMessage, ufQuantity, ufValor, currentTime) {
             try {
